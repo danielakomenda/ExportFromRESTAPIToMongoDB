@@ -19,132 +19,46 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 
-///////////////////////////////////////////////////////////////////////////
-//  Needed Repository-Query in EntityRepository in the Spring-Boot-Project
-///////////////////////////////////////////////////////////////////////////
-/*
-        @Query(value="SELECT something.* FROM something INNER JOIN association ON something.id=association.something_id WHERE association.supertype_id = ?1", nativeQuery = true)
-        public List<Something> findSomethingsBySupertype(long id);
-*/
-
-
-/////////////////////////////////////////////////////////////
-//  Needed RestController-Methods in the Spring-Boot-Project
-/////////////////////////////////////////////////////////////
-/*
-	@RequestMapping(value = "/something", method = RequestMethod.GET)
-	public ResponseEntity<List<Something>> getSomething() {
-		List<Something> result = this.repository.findAll();
-
-		if (!result.isEmpty()) {
-			return new ResponseEntity<List<Something>>(result, HttpStatus.OK);
-		} else {
-			return new ResponseEntity<List<Something>>(HttpStatus.NOT_FOUND);
-		}
-	}
-
-    @RequestMapping(value = "/supertype/{id}/somethings", method = RequestMethod.GET)
-	public ResponseEntity<List<Something>> getSomethingsFromSupertype(@PathVariable("id") long id) {
-		List<Something> result = this.repository.findSomethingsBySupertype(id);
-
-		if (!result.isEmpty()) {
-			return new ResponseEntity<List<Something>>(result, HttpStatus.OK);
-		} else {
-			return new ResponseEntity<List<Something>>(HttpStatus.NOT_FOUND);
-		}
-	}
- */
-
-
 public class ExportToMongoDB {
-
-	public void run(String mongoUriProperty) throws Exception {
-        
+    
+	public void run(String mongoUriProperty, String databaseName) throws Exception {
+       
         String mongoUri = mongoUriProperty;
             
         try (MongoClient mongoClient = MongoClients.create(mongoUri)) {
-            MongoDatabase database = mongoClient.getDatabase("DATABASE"); // <----------- Change Database-Name
+            MongoDatabase database = mongoClient.getDatabase(databaseName);
             
-            // Get the Nodes
-            getNodes(database);
-            System.out.println("Nodes DONE");
-            
-            // Get the Edges
-            getEdges(database);
-            System.out.println("Edges DONE");
+            exportData(database, "association", "/productions"); // <-------------- anpassen
+
         }
     }
 
 
-    ///////////////////////////////////////////////////////////
-    // Method to get the Node and upload them to MongoDB
-    //////////////////////////////////////////////////////////
-    private static void getNodes(MongoDatabase database) throws Exception {      
+    ///////////////////////////////////////////////////////////////////
+    // Method to get the Data from REST API and upload them to MongoDB
+    ///////////////////////////////////////////////////////////////////
+    private static void exportData(MongoDatabase database, String collectionname, String endpoint) throws Exception {      
        
-        MongoCollection<Document> collection = database.getCollection("Nodes"); // <----------- Change Collection-Name
-        Gson gson = new Gson(); // Gson-Instance
+        MongoCollection<Document> collection = database.getCollection(collectionname);
+        Gson gson = new Gson();
 
-        JsonArray nodes = getRestCall("/something").getAsJsonArray(); // <----------- Define End-Point in the Rest-Controller
+        int count = 0;
+
+        JsonArray results = getRestCall(endpoint).getAsJsonArray();
         
-        // Load Node to MongoDB
-        for (JsonElement node : nodes) {
-            String resultJson = gson.toJson(node);
+        for (JsonElement result : results) {
+            String resultJson = gson.toJson(result);
             Document resultDoc = Document.parse(resultJson);
             collection.insertOne(resultDoc);
+            count++;
         }
-        System.out.println("Data export to MongoDB successful!");       
+        System.out.println(count +" " +collectionname +" exported to MongoDB successfully!");       
     }
 
 
-    ///////////////////////////////////////////////////////////
-    // Method to get the Edges and upload them to MongoDB
-    //////////////////////////////////////////////////////////
-    private static void getEdges(MongoDatabase database) throws Exception {        
-        
-        MongoCollection<Document> collection = database.getCollection("Edges");  // <----------- Change Collection-Name
-        Gson gson = new Gson(); // Gson-Instance
-
-        // Get the Supertype-IDs first to make the Edge-Call
-        JsonArray supertypes = getRestCall("/supertype").getAsJsonArray(); // <----------- Define End-Point in the Rest-Controller
-        for (JsonElement supertype : supertypes) {
-
-            // JsonArray-Instance
-            JsonArray edges;
-
-            // Get all the Suptertype-IDs
-            int id = supertype.getAsJsonObject().get("id").getAsInt();
-            
-            // Make the Call for List of Nodes in Supertype
-            try {
-                edges = getRestCall("/supertype/" + id + "/somethings").getAsJsonArray(); // <----------- Define End-Point in the Rest-Controller
-            } catch (RuntimeException e) {
-                continue;
-            }
-        
-            // Get pairs of Edges
-            for (int i=0; i<edges.size(); i++) {
-                for (int j=0; j<i; j++){
-
-                    // Convert Edge-Object from JsonArray to Json to Document
-                    Document edge1 = Document.parse(gson.toJson(edges.get(i)));
-                    Document edge2 = Document.parse(gson.toJson(edges.get(j)));
-                    Document sharedSupertype = Document.parse(gson.toJson(supertype));
-
-                    // Create the Result-Document
-                    Document resultDoc = new Document("edge1", edge1).append("edge2", edge2).append("supertype", sharedSupertype);
-                    
-                    // Insert the Result-Document
-                    collection.insertOne(resultDoc);
-                }
-            }
-        }
-    }
-
-
-
-    ///////////////////////////////////////////////////////////
+    ////////////////////////////////////
     // Method to make the REST-API-Call
-    //////////////////////////////////////////////////////////
+    ////////////////////////////////////
 	private static JsonElement getRestCall(String url) throws Exception {
 		URL obj = new URL("http://localhost:8080" + url);
 		HttpURLConnection con = (HttpURLConnection) obj.openConnection();

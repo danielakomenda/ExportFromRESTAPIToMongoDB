@@ -2,9 +2,7 @@ This is a possible solution for the WP 4 for Data-Management-Class at ZHAW.
 
 Since it is a difficult task and was not part of the lecture, I hope my solution will help.
 
-In my solution, you create the Nodes and especially the edges as an End-Point in your Spring-Boot-Application. So you only upload the Nodes and Edges to MongoDB and not all the Data of "Something", "Association" and "Supertype".
-
-But you can easily adjust the Method getNodes() to access the other End-Points.
+In my solution, you create the Nodes as an Endpoint of 'Something' and for the Edges you need an Endpoint of 'Association'.
 
 ------------------------------------------------------------------------------------
 
@@ -31,5 +29,14 @@ In the App.java you need to use your MongoDB-Connection-String.
 In the ExportToMongoDB you need to ajust the different parts of the code to match your project.
 
 ------------------------------------------------------------------------------------
+
+TODO:   - App.java: change mongoUri
+        - App.java: change database
+        - ExportToMongoDB: change Endpoint
+        - ExportToCSV: change Nodes-pipeline
+        - ExportToCSV: change Edges-pipeline
+
+------------------------------------------------------------------------------------
+
 
 GOOD LUCK!

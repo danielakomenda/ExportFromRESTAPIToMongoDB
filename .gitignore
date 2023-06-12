@@ -1,0 +1,10 @@
+mongodb.properties
+.vscode/
+
+.DS*
+
+Edges.csv
+Nodes.csv
+
+target/
+src/test/
