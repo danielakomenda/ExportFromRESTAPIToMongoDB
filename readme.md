@@ -30,11 +30,12 @@ In the ExportToMongoDB you need to ajust the different parts of the code to matc
 
 ------------------------------------------------------------------------------------
 
-TODO:   - App.java: change mongoUri
-        - App.java: change database
-        - ExportToMongoDB: change Endpoint
-        - ExportToCSV: change Nodes-pipeline
-        - ExportToCSV: change Edges-pipeline
+<h1>TODO:</h1>
+- App.java: change mongoUri <br>
+- App.java: change database <br>
+- ExportToMongoDB: change Endpoint <br>
+- ExportToCSV: change Nodes-pipeline <br>
+- ExportToCSV: change Edges-pipeline <br>
 
 ------------------------------------------------------------------------------------
 
