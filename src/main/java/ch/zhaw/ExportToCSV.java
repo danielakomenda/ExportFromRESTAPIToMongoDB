@@ -17,7 +17,7 @@ import java.util.Arrays;
 
 public class ExportToCSV {
 
-	public void run(String mongoUriProperty, String databaseName) throws Exception {
+	public void run(String mongoUriProperty, String databaseName, String pathToCSV, String something, String association, String supertype) throws Exception {
 
         String mongoUri = mongoUriProperty;
             
@@ -25,13 +25,13 @@ public class ExportToCSV {
             MongoDatabase database = mongoClient.getDatabase(databaseName);
             
             // Get the Nodes
-            ArrayList<String[]> nodes = getNodes(database);
-            writeCSV(nodes, "Nodes.csv");
+            ArrayList<String[]> nodes = getNodes(database, association, something);
+            writeCSV(nodes, "Nodes.csv", pathToCSV);
             System.out.println("Nodes DONE");
                 
             // Get the Edges
-            ArrayList<String[]> edges = getEdges(database);
-            writeCSV(edges, "Edges.csv");
+            ArrayList<String[]> edges = getEdges(database, association, something, supertype);
+            writeCSV(edges, "Edges.csv", pathToCSV);
             System.out.println("Edges DONE");
         }
     }
@@ -40,8 +40,8 @@ public class ExportToCSV {
     ///////////////////////////////////////////////////////////
     // Method to write a CSV
     //////////////////////////////////////////////////////////
-    private static void writeCSV(ArrayList<String[]> csvData, String filename) throws Exception {        
-        CSVWriter writer = new CSVWriter(new FileWriter(filename));
+    private static void writeCSV(ArrayList<String[]> csvData, String filename, String path) throws Exception {        
+        CSVWriter writer = new CSVWriter(new FileWriter(path+filename));
         try {
             writer.writeAll(csvData);
         }
@@ -54,14 +54,14 @@ public class ExportToCSV {
     ///////////////////////////////////////////////////////////
     // Method to get the Nodes from MongoDB
     //////////////////////////////////////////////////////////
-    private static ArrayList<String[]> getNodes(MongoDatabase database){      
-        MongoCollection<Document> collection = database.getCollection("association");
+    private static ArrayList<String[]> getNodes(MongoDatabase database, String collectionName, String something){      
+        MongoCollection<Document> collection = database.getCollection(collectionName);
         
         ArrayList<Document> nodes = collection.aggregate(
             Arrays.asList(new Document("$group", 
-            new Document("_id", "$<something>.id")  // <-------------- anpassen
+            new Document("_id", "$"+something+".id")
                     .append("name", 
-            new Document("$first", "$<something>.name"))), // <-------------- anpassen
+            new Document("$first", "$"+something+".name"))),
             new Document("$project", 
             new Document("_id", "$_id")
                     .append("name", "$name")))   
@@ -83,39 +83,52 @@ public class ExportToCSV {
     ///////////////////////////////////////////////////////////
     // Method to get the Edges from MongoDB
     //////////////////////////////////////////////////////////
-    private static ArrayList<String[]> getEdges(MongoDatabase database) {        
+    private static ArrayList<String[]> getEdges(MongoDatabase database, String collectionName, String something, String supertype) {        
                 
-        MongoCollection<Document> collection = database.getCollection("productions");
+        MongoCollection<Document> collection = database.getCollection(collectionName);
         
         ArrayList<Document> edges = collection.aggregate(
-            Arrays.asList(new Document("$group", 
-            new Document("_id", "$<suptertype>.id")  // <-------------- anpassen
-                    .append("nodes", 
-            new Document("$addToSet", "$<something>.id"))),  // <-------------- anpassen
-            new Document("$project", 
-            new Document("_id", 0L)
-                    .append("pairs", 
-            new Document("$reduce", 
-            new Document("input", "$nodes")
+            Arrays.asList(
+                
+            // Groups all Elements by the Supertype-ID and adds all SomethingIDs to an Array
+            new Document("$group", 
+                new Document("_id", "$"+supertype+".id")
+                        .append("nodes", 
+                new Document("$addToSet", "$"+something+".id"))),
+
+                // Iterates over the Array and creates pairs (duplicates are excluded because it only iterates until two IDs are the same)
+                new Document("$project", 
+                    new Document("_id", "$_id")
+                            .append("pairs", 
+                    new Document("$reduce", 
+                    new Document("input", "$nodes")
                             .append("initialValue", Arrays.asList())
                             .append("in", 
-            new Document("$concatArrays", Arrays.asList("$$value", 
-                                    new Document("$map", 
-                                    new Document("input", 
-                                    new Document("$slice", Arrays.asList("$nodes", 
-                                                    new Document("$add", Arrays.asList(new Document("$indexOfArray", Arrays.asList("$nodes", "$$this")), 1L)), 
-                                                    new Document("$size", "$nodes"))))
-                                            .append("as", "otherNode")
-                                            .append("in", 
-                                    new Document("$cond", Arrays.asList(new Document("$ne", Arrays.asList("$$this", "$$otherNode")), 
-                                                    new Document("node1", "$$this")
-                                                        .append("node2", "$$otherNode"), 
-                                                    new BsonNull())))))))))), 
-            new Document("$unwind", "$pairs"), 
-            new Document("$project", 
-            new Document("node1", "$pairs.node1")
-                    .append("node2", "$pairs.node2")))
+                    new Document("$concatArrays", Arrays.asList("$$value", 
+                    new Document("$map", 
+                    new Document("input", 
+                    new Document("$slice", Arrays.asList("$nodes", 
+                    new Document("$add", Arrays.asList(
+                        new Document("$indexOfArray", Arrays.asList("$nodes", "$$this")), 1L)), 
+                    new Document("$size", "$nodes"))))
+                            .append("as", "otherNode")
+                            .append("in", 
+                    new Document("$cond", Arrays.asList(
+                        new Document("$ne", Arrays.asList("$$this", "$$otherNode")), 
+                    new Document("node1", "$$this")
+                        .append("node2", "$$otherNode"), 
+                    new BsonNull())))))))))), 
+                
+                // Unwinds the pairs, so there is a seperate document for every pair
+                new Document("$unwind", "$pairs"), 
+                
+                // Projects all the relevant information directly to flatten the object; if you want, you can add the supertype-information too.
+                new Document("$project", 
+                new Document("node1", "$pairs.node1")
+                        .append("node2", "$pairs.node2")))
+
         ).into(new ArrayList<Document>());
+
 
         ArrayList<String[]> csvData = new ArrayList<>();
         String[] header = {"node1", "node2"};

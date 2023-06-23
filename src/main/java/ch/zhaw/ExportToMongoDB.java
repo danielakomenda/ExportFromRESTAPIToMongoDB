@@ -21,15 +21,14 @@ import com.mongodb.client.MongoDatabase;
 
 public class ExportToMongoDB {
     
-	public void run(String mongoUriProperty, String databaseName) throws Exception {
+	public void run(String mongoUriProperty, String databaseName, String association, String associationEndpoint) throws Exception {
        
         String mongoUri = mongoUriProperty;
             
         try (MongoClient mongoClient = MongoClients.create(mongoUri)) {
             MongoDatabase database = mongoClient.getDatabase(databaseName);
             
-            exportData(database, "association", "/productions"); // <-------------- anpassen
-
+            exportData(database, association, associationEndpoint);
         }
     }
 
