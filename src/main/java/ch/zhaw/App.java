@@ -9,7 +9,7 @@ public class App
 
         String pathForCSV = "";             // <-------------- adjust (I would use the path to the Neo4j-Import-Folder)
 
-        String something = "";              // <-------------- adjust
+        String something = "t";             // <-------------- adjust
         String association = "";            // <-------------- adjust
         String supertype = "";              // <-------------- adjust
 
